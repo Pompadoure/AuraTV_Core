@@ -100,7 +100,11 @@ class UpdateManager(
         scope.launch {
             runCatching {
                 val request = Request.Builder()
-                    .url("https://api.github.com/repos/${CoreBuildInfo.releaseRepo}/releases/latest")
+                    // AuraTV fork: a rolling pre-release tag, when the host names one, replaces "latest".
+                    .url(
+                        "https://api.github.com/repos/${CoreBuildInfo.releaseRepo}/releases/" +
+                            CoreBuildInfo.rollingReleaseTag.takeIf { it.isNotBlank() }?.let { "tags/$it" }.orEmpty().ifEmpty { "latest" },
+                    )
                     .header("Accept", "application/vnd.github+json")
                     .header("User-Agent", "OwnTV")
                     .build()
@@ -109,8 +113,14 @@ class UpdateManager(
                     val body = resp.body.string()
                     if (body.isBlank()) throw InvalidReleaseResponseException()
                     val o = runCatching { JSONObject(body) }.getOrElse { throw InvalidReleaseResponseException() }
-                    val version = o.optString("tag_name").removePrefix("v").takeIf { it.isNotBlank() }
-                        ?: throw InvalidReleaseResponseException()
+                    val rolling = CoreBuildInfo.rollingReleaseTag.isNotBlank()
+                    // Rolling builds all share one tag and one versionName: identify them by the commit.
+                    val remoteCommit = o.optString("target_commitish")
+                    val version = if (rolling) {
+                        remoteCommit.takeIf { it.isNotBlank() }?.let { "dev-${it.take(7)}" }
+                    } else {
+                        o.optString("tag_name").removePrefix("v").takeIf { it.isNotBlank() }
+                    } ?: throw InvalidReleaseResponseException()
                     val notes = o.optString("body").take(16_000)
                     val assets = o.optJSONArray("assets") ?: throw InvalidReleaseResponseException()
                     // Releases carry one APK per ABI flavor (arm = generic, x86_64 suffixed). Never
@@ -130,8 +140,13 @@ class UpdateManager(
                         ?: throw NoCompatibleApkException()
                     val info = UpdateInfo(version, notes, apkUrl)
                     settings.recordUpdateCheck(System.currentTimeMillis())
-                    if (isNewer(version, currentVersion)) _state.value = State.Available(info)
-                    else _state.value = State.UpToDate
+                    val newer = if (rolling) {
+                        // Unknown local commit (a local build) never nags; otherwise any other commit is an update.
+                        CoreBuildInfo.buildCommit.isNotBlank() && !remoteCommit.equals(CoreBuildInfo.buildCommit, ignoreCase = true)
+                    } else {
+                        isNewer(version, currentVersion)
+                    }
+                    if (newer) _state.value = State.Available(info) else _state.value = State.UpToDate
                 }
             }.onFailure { error ->
                 Log.w(TAG, "update check failed: ${error.message}", error)

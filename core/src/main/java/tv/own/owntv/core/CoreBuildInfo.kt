@@ -75,4 +75,18 @@ object CoreBuildInfo {
      * marker, which both repositories' release names carry.
      */
     var releaseRepo: String = "ahXN00/OwnTV"
+
+    /**
+     * AuraTV fork: tag of a rolling pre-release that always holds the newest build of `main`
+     * (e.g. `dev`). Blank (upstream default) keeps the stock behaviour: GitHub's "latest" release,
+     * compared by version number.
+     *
+     * Every rolling build carries the same versionName, so a version compare cannot tell builds
+     * apart; [UpdateManager][tv.own.owntv.core.update.UpdateManager] compares the commit the release
+     * was cut from with [buildCommit] instead.
+     */
+    var rollingReleaseTag: String = ""
+
+    /** AuraTV fork: full git SHA this build was made from (blank for local builds). See [rollingReleaseTag]. */
+    var buildCommit: String = ""
 }
