@@ -37,6 +37,8 @@ jobs:
   # nobody can find from the tag it was cut at. Its own job so a mistyped tag fails immediately
   # instead of after a full CI run.
   verify-tag:
+    # Aura TV's fork has none of upstream's tokens or Pages site: this job only runs in the upstream repo.
+    if: github.repository == 'ahXN00/OwnTV_Core'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

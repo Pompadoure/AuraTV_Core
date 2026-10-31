@@ -55,8 +55,9 @@ jobs:
     # remaining check: this repo could carry some other release series one day, and pinning
     # consumers to a version that was never published as core breaks every contributor's build.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      startsWith(github.event.release.tag_name, 'core-')
+      github.repository == 'ahXN00/OwnTV_Core' &&
+      (github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.release.tag_name, 'core-'))
     runs-on: ubuntu-latest
 
     strategy:
