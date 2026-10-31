@@ -1338,7 +1338,10 @@ class LivePreviewEngine(
 
         override fun onIsPlayingChanged(isPlaying: Boolean) { _isPlaying.value = isPlaying }
 
-        override fun onRenderedFirstFrame() { tune.firstFrameRendered = true }
+        override fun onRenderedFirstFrame() {
+            tune.firstFrameRendered = true
+            _renderedFrameTick.value += 1
+        }
 
         override fun onVideoSizeChanged(videoSize: VideoSize) {
             if (videoSize.height > 0) {
@@ -1474,6 +1477,14 @@ class LivePreviewEngine(
             _errorInfo.value = ErrorInfo(PlayerErrors.reasonFor(raw), exoSpec(), raw)
         }
     }
+
+    /**
+     * AuraTV fork: counts first-frame renders. Media3 reports one after every output-surface change as
+     * well as after a tune, so the host can wait for "the picture is now on the new surface" before it
+     * removes the old one (the full-screen -> preview hand-over) instead of guessing a delay.
+     */
+    private val _renderedFrameTick = MutableStateFlow(0)
+    val renderedFrameTick: StateFlow<Int> = _renderedFrameTick
 
     /** Attach the preview SurfaceView's surface, or null when it's destroyed. */
     fun setSurface(s: Surface?) {
