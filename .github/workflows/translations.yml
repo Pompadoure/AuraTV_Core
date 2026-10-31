@@ -33,6 +33,8 @@ env:
 
 jobs:
   sync:
+    # Aura TV's fork has none of upstream's tokens or Pages site: this job only runs in the upstream repo.
+    if: github.repository == 'ahXN00/OwnTV_Core'
     runs-on: ubuntu-latest
     env:
       WEBLATE_TOKEN: ${{ secrets.WEBLATE_TOKEN }}
