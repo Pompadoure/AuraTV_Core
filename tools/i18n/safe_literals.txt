@@ -5874,6 +5874,7 @@
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	url=${HttpClient.redactUrl(url)}
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	variants=${mv.variants.size} audios=${mv.audios.size} subs=${mv.subtitles.size}
 2	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	video
+1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	video decoder ready (init took ${initializationDurationMs}ms)
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	video decoder: $decoderName (
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	video surface attached (${id(s)}), decoder ${if (player == null) "not built" else "running"}
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	video surface detached (${id(previous!!)})

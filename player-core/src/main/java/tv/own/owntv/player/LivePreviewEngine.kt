@@ -455,6 +455,7 @@ class LivePreviewEngine(
         }
 
         override fun onVideoDecoderInitialized(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
+            zapMark("video decoder ready (init took ${initializationDurationMs}ms)")
             tune.lastVideoDecoder = decoderName
             val hardware = DecoderNames.isHardware(decoderName)
             tune.lastVideoDecoderHardware = hardware
@@ -859,6 +860,7 @@ class LivePreviewEngine(
             // A CH+/− press that led here adds the whole wait the user saw, including the app's zap delay.
             val sincePress = ZapTiming.sincePress(t.pressAtMs, now)
             LiveDiagnosticsLog.event("first frame after ${now - t.startedMs}ms${ZapTiming.pressSuffix(sincePress)}")
+            _tuneFirstFrames.value = _tuneStarts.value
             android.util.Log.i(ZAP_TAG, "first frame after ${now - t.startedMs}ms${ZapTiming.pressSuffix(sincePress)}")
         }
     }
@@ -1503,6 +1505,14 @@ class LivePreviewEngine(
      * removes the old one (the full-screen -> preview hand-over) instead of guessing a delay.
      */
     private val _renderedFrameTick = MutableStateFlow(0)
+    /**
+     * Channel changes in flight, for masking the wait in the UI: [tuneStarts] counts play() calls, [tuneFirstFrames]
+     * counts tunes that have shown their first picture. They differ exactly while a new channel has no picture yet.
+     */
+    private val _tuneStarts = MutableStateFlow(0)
+    private val _tuneFirstFrames = MutableStateFlow(0)
+    val tuneStarts: StateFlow<Int> = _tuneStarts
+    val tuneFirstFrames: StateFlow<Int> = _tuneFirstFrames
     val renderedFrameTick: StateFlow<Int> = _renderedFrameTick
 
     /** Attach the preview SurfaceView's surface, or null when it's destroyed. */
@@ -1647,6 +1657,7 @@ class LivePreviewEngine(
     ) {
         LiveDiagnosticsLog.event("play() engine=$engineId url=${HttpClient.redactUrl(url)} muted=$muted")
         android.util.Log.i(ZAP_TAG, "play() engine=$engineId muted=$muted")
+        _tuneStarts.value += 1
         // THE reset. Everything a new channel must not inherit from the previous one lives in
         // [TuneState], so forgetting it is one assignment that cannot be partially done.
         tune = TuneState(playStartedMs = android.os.SystemClock.elapsedRealtime())
