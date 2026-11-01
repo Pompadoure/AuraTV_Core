@@ -5654,6 +5654,7 @@
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	${videoSize.height}p
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	%.1f Mbps
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	%.2f:1
+1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	+${android.os.SystemClock.elapsedRealtime() - tune.playStartedMs}ms $what
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	, $it
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	, init ${initializationDurationMs}ms)
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	-
@@ -5671,10 +5672,10 @@
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	AV1
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	Age
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	Authorization
-1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	BUFFERING
+2	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	BUFFERING
 4	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	Content-Type
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	Cookie
-1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	ENDED
+2	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	ENDED
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	EXO
 5	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	ExoPlayer
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	ExoPlayer can't play this stream (${error.errorCodeName})
@@ -5684,11 +5685,12 @@
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	HEVC
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	HTTP $HTTP_TOO_MANY_REQUESTS with Retry-After ${secs}s — waiting it out and retrying automatically
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	HTTP 458 while the previous engine's session was still open — waiting and retrying once
-1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	IDLE
+2	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	IDLE
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	MONO
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	MPEG-2
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	MPEG-4
-1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	READY
+1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	OwnTV-Zap
+2	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	READY
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	Range
 2	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	Retry-After
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	STATE_ENDED before first play — no action
@@ -5740,7 +5742,7 @@
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	every rung spent — retrying at the panel's direct_source address
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	exo/live: $reason
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	ffmpeg
-1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	first frame after ${now - t.startedMs}ms${ZapTiming.pressSuffix(sincePress)}
+2	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	first frame after ${now - t.startedMs}ms${ZapTiming.pressSuffix(sincePress)}
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	frame hook NOT wired — no video renderer found; picture-freeze detection falls back to the no-progress backstop
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	frame hook send FAILED (${it.message}) — picture-freeze detection falls back to the no-progress backstop
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	frames dropped faster than shown
@@ -5766,6 +5768,8 @@
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	length=${response.body.contentLength()} signature=${HttpDiagnostics.mediaSignature(prefix)}
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	liveOffsetMs=${p.currentLiveOffset.takeUnless { it == C.TIME_UNSET } ?: -1}
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	live_buffer preroll=${effectivePrerollSecs()}s start=${lc.bufferForPlaybackMs}ms
+1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	load done type=${mediaLoadData.dataType} took=${loadEventInfo.loadDurationMs}ms bytes=${loadEventInfo.bytesLoaded}
+1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	load start type=${mediaLoadData.dataType}
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	load_control min=${lc.minBufferMs} max=${lc.maxBufferMs} start=${lc.bufferForPlaybackMs}
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	load_error status=${code ?: -1} type=${error.javaClass.simpleName}
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	media server not answering
@@ -5794,6 +5798,7 @@
 2	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	picture frozen
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	picture frozen a third time — giving up on ExoPlayer for this stream
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	picture frozen again — new decoder and surface
+1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	play() engine=$engineId muted=$muted
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	play() engine=$engineId url=${HttpClient.redactUrl(url)} muted=$muted
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	play() failed: ${it.message}
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	playback healthy for ${HEALTHY_MS}ms — reconnect ladder reset

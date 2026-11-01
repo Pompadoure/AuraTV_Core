@@ -247,6 +247,7 @@
 1	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	no more instances
 1	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	provider refused the default User-Agent — retrying as ${HttpClient.FALLBACK_USER_AGENT}
 1	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	reclaim
+1	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	state ${when (state) { Player.STATE_IDLE -> "IDLE"; Player.STATE_BUFFERING -> "BUFFERING"; Player.STATE_READY -> "READY"; else -> "ENDED" }}
 1	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	stream didn't open — trying the ${alt.substringBefore('?').substringAfterLast('.')} form of this channel
 1	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	trying alternate format: ${HttpClient.redactUrl(alt)}
 4	player-core/src/main/java/tv/own/owntv/player/LiveStreamQuirks.kt	.m3u8

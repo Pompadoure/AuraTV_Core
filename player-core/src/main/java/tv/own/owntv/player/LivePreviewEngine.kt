@@ -415,6 +415,20 @@ class LivePreviewEngine(
         }
     }
     private val analytics = object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+        // Zap timing (logcat tag OwnTV-Zap, always on): where the time between play() and the first picture goes.
+        override fun onPlaybackStateChanged(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, state: Int) {
+            zapMark("state ${when (state) { Player.STATE_IDLE -> "IDLE"; Player.STATE_BUFFERING -> "BUFFERING"; Player.STATE_READY -> "READY"; else -> "ENDED" }}")
+        }
+        override fun onLoadStarted(
+            eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+            loadEventInfo: androidx.media3.exoplayer.source.LoadEventInfo,
+            mediaLoadData: androidx.media3.exoplayer.source.MediaLoadData,
+        ) { zapMark("load start type=${mediaLoadData.dataType}") }
+        override fun onLoadCompleted(
+            eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+            loadEventInfo: androidx.media3.exoplayer.source.LoadEventInfo,
+            mediaLoadData: androidx.media3.exoplayer.source.MediaLoadData,
+        ) { zapMark("load done type=${mediaLoadData.dataType} took=${loadEventInfo.loadDurationMs}ms bytes=${loadEventInfo.bytesLoaded}") }
         override fun onVideoCodecError(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, videoCodecError: Exception) {
             tune.lastCodecError = codecDetail("video", videoCodecError)
         }
@@ -830,6 +844,10 @@ class LivePreviewEngine(
     // The first rendered frame of a load is also the answer to "how long did this tune take?", so it is
     // logged with the elapsed time since play(). It is the number the Happy Eyeballs measurement reads.
     private val firstFrameGate = FirstFrameGate()
+    /** One zap-timing line, stamped with the ms since the current tune's play(). */
+    private fun zapMark(what: String) {
+        android.util.Log.i(ZAP_TAG, "+${android.os.SystemClock.elapsedRealtime() - tune.playStartedMs}ms $what")
+    }
     private val frameListener = VideoFrameMetadataListener { presentationTimeUs, _, _, _ ->
         frameCounter.incrementAndGet()
         ptsRate.add(presentationTimeUs)
@@ -841,6 +859,7 @@ class LivePreviewEngine(
             // A CH+/− press that led here adds the whole wait the user saw, including the app's zap delay.
             val sincePress = ZapTiming.sincePress(t.pressAtMs, now)
             LiveDiagnosticsLog.event("first frame after ${now - t.startedMs}ms${ZapTiming.pressSuffix(sincePress)}")
+            android.util.Log.i(ZAP_TAG, "first frame after ${now - t.startedMs}ms${ZapTiming.pressSuffix(sincePress)}")
         }
     }
     private var fpsAttempts = 0
@@ -1627,6 +1646,7 @@ class LivePreviewEngine(
         directSource: String? = null,
     ) {
         LiveDiagnosticsLog.event("play() engine=$engineId url=${HttpClient.redactUrl(url)} muted=$muted")
+        android.util.Log.i(ZAP_TAG, "play() engine=$engineId muted=$muted")
         // THE reset. Everything a new channel must not inherit from the previous one lives in
         // [TuneState], so forgetting it is one assignment that cannot be partially done.
         tune = TuneState(playStartedMs = android.os.SystemClock.elapsedRealtime())
@@ -3504,6 +3524,7 @@ class LivePreviewEngine(
     }
 
     companion object {
+        private const val ZAP_TAG = "OwnTV-Zap"
         /** Channels already hinted this app session (main thread); the hint is shown once per channel. */
         private val smoothnessHinted = HashSet<String>()
         private const val MAX_VOLUME = VolumeBoost.MAX_VOLUME // same ceiling as mpv; 100–150 comes from LoudnessEnhancer
