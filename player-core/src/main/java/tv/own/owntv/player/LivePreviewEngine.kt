@@ -3147,6 +3147,10 @@ class LivePreviewEngine(
     private var playerSourceCuttable = false
     /** A zap is being held: the old item is playing out, the new one is queued behind it. */
     private var tailPending = false
+        set(value) { field = value; _tailHolding.value = value }
+    private val _tailHolding = MutableStateFlow(false)
+    /** True while a held-tail channel change is under way: the old picture still plays, the new channel has not taken over. */
+    val tailHolding: StateFlow<Boolean> = _tailHolding
     private var cachedDefaultFactory: DefaultMediaSourceFactory? = null
     private var cachedHlsCcFactory: HlsMediaSource.Factory? = null
     /** Debug-build HTTP probe for provider-side failures. It persists redacted metadata, a
