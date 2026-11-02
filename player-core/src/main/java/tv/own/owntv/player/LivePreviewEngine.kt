@@ -120,7 +120,13 @@ class LivePreviewEngine(
      *  ([LiveStreamQuirks.defeatsPreroll]), otherwise the per-playlist override or the global setting. */
     /** The live-edge depth this tune should use: the playlist's override if it set one, else the global
      *  Live latency setting. Null either way means Balanced — engine defaults, no target offset. */
-    private fun effectiveLiveBufferSecs(): Int? = liveBufferOverride?.secs ?: liveBufferSecs
+    private fun effectiveLiveBufferSecs(): Int? {
+        val base = liveBufferOverride?.secs ?: liveBufferSecs
+        // Buffered channel change: the old picture plays out whatever it has buffered before the new channel can take
+        // over (jumping ahead would be a seek, which makes ExoPlayer throw away and reload the new channel), so
+        // that tail is kept short. A load control change rebuilds the player on the next tune (see play()).
+        return if (zapTailHold) minOf(base ?: LiveBuffer.BALANCED_SECS, TAIL_HOLD_BUFFER_SECS) else base
+    }
 
     private fun effectivePrerollSecs(): Int {
         val chosen = prerollOverrideSecs ?: livePrerollSecs
@@ -1138,7 +1144,12 @@ class LivePreviewEngine(
         tailPending = true
         tailCutAtMs = android.os.SystemClock.elapsedRealtime()
         tailBufferedAtCut = p.totalBufferedDuration
-        mainHandler.removeCallbacks(tailSwitchPoll); mainHandler.postDelayed(tailSwitchPoll, TAIL_POLL_MS)
+        // No early cut-over: seekToNextMediaItem() seeks the new item to its start, which ExoPlayer cannot do inside an
+        // unseekable live TS, so it dropped the new channel's buffer and reloaded it (measured: buffered=0 and a
+        // second load right after the switch, first picture 1-5 s later). The natural hand-over at the end of the old
+        // item keeps what the new item has buffered.
+        mainHandler.removeCallbacks(tailSwitchPoll)
+        if (TAIL_EARLY_SWITCH) mainHandler.postDelayed(tailSwitchPoll, TAIL_POLL_MS)
         // The old picture is still on screen and is still a healthy stream: keep the UI on it.
         _state.value = State.PLAYING; _buffering.value = false
         val gen = firstFrameGate.current
@@ -3636,6 +3647,8 @@ class LivePreviewEngine(
 
     companion object {
         private const val ZAP_TAG = "OwnTV-Zap"
+        private const val TAIL_EARLY_SWITCH = false
+        private const val TAIL_HOLD_BUFFER_SECS = 4
         private const val TAIL_SWITCH_MIN_MS = 3_000L
         private const val TAIL_AWAIT_FRAME_MAX_MS = 6_000L
         private const val TAIL_POLL_MS = 40L
