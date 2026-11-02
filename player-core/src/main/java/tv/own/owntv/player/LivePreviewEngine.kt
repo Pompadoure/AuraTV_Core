@@ -1136,6 +1136,9 @@ class LivePreviewEngine(
         factory.cutOlderThan(newToken)
         p.playWhenReady = true
         tailPending = true
+        tailCutAtMs = android.os.SystemClock.elapsedRealtime()
+        tailBufferedAtCut = p.totalBufferedDuration
+        mainHandler.removeCallbacks(tailSwitchPoll); mainHandler.postDelayed(tailSwitchPoll, TAIL_POLL_MS)
         // The old picture is still on screen and is still a healthy stream: keep the UI on it.
         _state.value = State.PLAYING; _buffering.value = false
         val gen = firstFrameGate.current
@@ -1387,7 +1390,8 @@ class LivePreviewEngine(
         override fun onIsPlayingChanged(isPlaying: Boolean) { _isPlaying.value = isPlaying }
 
         override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
-            if (!tailPending || reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) return
+            if (!tailPending || (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && reason != Player.MEDIA_ITEM_TRANSITION_REASON_SEEK)) return
+            mainHandler.removeCallbacks(tailSwitchPoll)
             // The held tail has run out and the new channel took over without a gap in the player.
             tailPending = false
             zapMark("tail hold over: new channel playing")
@@ -1798,7 +1802,7 @@ class LivePreviewEngine(
             setVideoTrackDisabled(_audioOnly.value) // survives a player rebuild while Audio Mode is on
             // An open that buffers but never starts would otherwise hold the spinner forever — see
             // [openWatchdog]. Armed for every tune, pre-roll or not: branch (1) doesn't need one.
-            if (holdTail && p === before) reprepareHoldingTail(p, url) else { tailPending = false; prepareOnFreshSurface(p, url) }
+            if (holdTail && p === before) reprepareHoldingTail(p, url) else { tailPending = false; mainHandler.removeCallbacks(tailSwitchPoll); prepareOnFreshSurface(p, url) }
         }.onFailure {
             android.util.Log.w(LiveDiagnosticsLog.TAG, "preview play() failed for ${HttpClient.redactUrl(url)}", it)
             LiveDiagnosticsLog.event("play() failed: ${it.message}")
@@ -3149,6 +3153,30 @@ class LivePreviewEngine(
     private var tailPending = false
         set(value) { field = value; _tailHolding.value = value }
     private val _tailHolding = MutableStateFlow(false)
+    private var tailCutAtMs = 0L
+    private var tailBufferedAtCut = 0L
+    /**
+     * Cut over as soon as the new channel is ready instead of waiting for the old buffer (8-10 s on Balanced) to run
+     * out. The player's total buffered time is the old tail plus whatever the new item has; subtracting the tail
+     * (which plays down in real time) leaves the new item's own buffer. At [TAIL_SWITCH_MIN_MS] of it the new
+     * channel has its first keyframe and is switched to; if that estimate never gets there, the old buffer running
+     * out still hands over by itself.
+     */
+    private val tailSwitchPoll = object : Runnable {
+        override fun run() {
+            val p = player ?: return
+            if (!tailPending || p.currentMediaItemIndex != 0 || p.mediaItemCount < 2) return
+            val elapsed = android.os.SystemClock.elapsedRealtime() - tailCutAtMs
+            val tailLeft = (tailBufferedAtCut - elapsed).coerceAtLeast(0L)
+            val newBuffered = p.totalBufferedDuration - tailLeft
+            if (newBuffered >= TAIL_SWITCH_MIN_MS) {
+                zapMark("tail hold: new channel has ${newBuffered}ms, switching now ($tailLeft ms of the old buffer skipped)")
+                p.seekToNextMediaItem()
+                return
+            }
+            mainHandler.postDelayed(this, TAIL_POLL_MS)
+        }
+    }
     /** True while a held-tail channel change is under way: the old picture still plays, the new channel has not taken over. */
     val tailHolding: StateFlow<Boolean> = _tailHolding
     private var cachedDefaultFactory: DefaultMediaSourceFactory? = null
@@ -3599,6 +3627,8 @@ class LivePreviewEngine(
 
     companion object {
         private const val ZAP_TAG = "OwnTV-Zap"
+        private const val TAIL_SWITCH_MIN_MS = 1_200L
+        private const val TAIL_POLL_MS = 40L
         /** Channels already hinted this app session (main thread); the hint is shown once per channel. */
         private val smoothnessHinted = HashSet<String>()
         private const val MAX_VOLUME = VolumeBoost.MAX_VOLUME // same ceiling as mpv; 100–150 comes from LoudnessEnhancer

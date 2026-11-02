@@ -5858,6 +5858,7 @@
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	stop() — intentional
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	stream frozen — no progress ${noProgressMs}ms
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	tail hold over: new channel playing
+1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	tail hold: new channel has ${newBuffered}ms, switching now ($tailLeft ms of the old buffer skipped)
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	tail hold: old stream cut, ${p.totalBufferedDuration}ms buffered to play out
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	targetDurSec=${playlist.targetDurationUs / 1_000_000.0} windowSec=${playlist.durationUs / 1_000_000.0}
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	targetOffsetSec=${targetOffsetSecs ?: -1}
