@@ -1107,6 +1107,7 @@ class LivePreviewEngine(
      */
     private fun reprepare(p: ExoPlayer, url: String) {
         p.setMediaSource(mediaSourceFor(url))
+        playerSourceCuttable = tailFactory != null && activeRoute == StreamRoute.PROGRESSIVE
         p.prepare()
         p.playWhenReady = true
         // Delivered on the playback thread after it has applied the source above (it handles commands in
@@ -1114,6 +1115,32 @@ class LivePreviewEngine(
         val gen = firstFrameGate.current
         runCatching { p.createMessage { _, _ -> firstFrameGate.open(gen) }.send() }
         armOpenWatchdog()
+    }
+
+    /**
+     * A channel change that keeps the old picture and sound running: the new channel is queued behind the item
+     * now playing, and that item's connection is cut, so it plays out what it has buffered while the new one
+     * connects. ExoPlayer moves on to the new item by itself when the old one runs dry. Only one connection is
+     * open at any moment. Called from [play] only when [zapTailHold] allows it.
+     */
+    private fun reprepareHoldingTail(p: ExoPlayer, url: String) {
+        val factory = tailFactory ?: return reprepare(p, url)
+        val newToken = ++tailToken // sources opened from here on belong to the new channel
+        val cur = p.currentMediaItemIndex
+        // A zap that never took over (several presses in a row) gives way to the newest one.
+        if (p.mediaItemCount > cur + 1) p.removeMediaItems(cur + 1, p.mediaItemCount)
+        if (cur > 0) p.removeMediaItems(0, cur)
+        p.addMediaSource(mediaSourceFor(url))
+        playerSourceCuttable = tailFactory != null && activeRoute == StreamRoute.PROGRESSIVE
+        // Queued first, cut second: the old item must not run out before it has a successor.
+        factory.cutOlderThan(newToken)
+        p.playWhenReady = true
+        tailPending = true
+        // The old picture is still on screen and is still a healthy stream: keep the UI on it.
+        _state.value = State.PLAYING; _buffering.value = false
+        val gen = firstFrameGate.current
+        runCatching { p.createMessage { _, _ -> firstFrameGate.open(gen) }.setPosition(p.mediaItemCount - 1, 0L).send() }
+        zapMark("tail hold: old stream cut, ${p.totalBufferedDuration}ms buffered to play out")
     }
 
     /** Remember that [url] can't hold a pre-roll and reopen it without one. Posted rather than run inline:
@@ -1358,6 +1385,14 @@ class LivePreviewEngine(
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) { _isPlaying.value = isPlaying }
+
+        override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+            if (!tailPending || reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) return
+            // The held tail has run out and the new channel took over without a gap in the player.
+            tailPending = false
+            zapMark("tail hold over: new channel playing")
+            if (player?.playbackState == Player.STATE_READY) onPlaybackStateChanged(Player.STATE_READY) else armOpenWatchdog()
+        }
 
         override fun onRenderedFirstFrame() {
             tune.firstFrameRendered = true
@@ -1746,6 +1781,11 @@ class LivePreviewEngine(
                 player = null
                 videoRenderer = null
             }
+            // A held-tail zap needs the same, healthy player still playing a cuttable item (see [zapTailHold]).
+            val before = player
+            val holdTail = zapTailHold && before != null && playerSourceCuttable && tailFactory != null && !sameChannelReopen &&
+                !awaitingFreshSurface && !_audioOnly.value && before.playbackState == Player.STATE_READY &&
+                before.playWhenReady && before.isPlaying
             val p = player ?: build().also { player = it }
             // May be null right after a surface-generation bump — setSurface attaches it a frame later.
             surface?.let { p.setVideoSurface(it) }
@@ -1758,7 +1798,7 @@ class LivePreviewEngine(
             setVideoTrackDisabled(_audioOnly.value) // survives a player rebuild while Audio Mode is on
             // An open that buffers but never starts would otherwise hold the spinner forever — see
             // [openWatchdog]. Armed for every tune, pre-roll or not: branch (1) doesn't need one.
-            prepareOnFreshSurface(p, url)
+            if (holdTail && p === before) reprepareHoldingTail(p, url) else { tailPending = false; prepareOnFreshSurface(p, url) }
         }.onFailure {
             android.util.Log.w(LiveDiagnosticsLog.TAG, "preview play() failed for ${HttpClient.redactUrl(url)}", it)
             LiveDiagnosticsLog.event("play() failed: ${it.message}")
@@ -3092,6 +3132,21 @@ class LivePreviewEngine(
     private var dataSourceForUa: String = ""
     private var dataSourceForHeaders: Map<String, String> = emptyMap()
     private var cachedHttpDataSource: OkHttpDataSource.Factory? = null
+
+    /**
+     * Experimental "buffered tail" channel change: when on, a zap leaves the playing channel's picture and sound
+     * running from its buffer while the next one connects, and cuts over when the next is ready. Only one
+     * connection is ever open (the old one is closed as the new one is asked for). Off by default; when off
+     * none of this code runs. Set by the app from its Settings.
+     */
+    @Volatile var zapTailHold: Boolean = false
+    private var tailFactory: TailCutDataSourceFactory? = null
+    private var tailWrapped = false
+    private var tailToken = 0
+    /** The item now playing was opened through [tailFactory] as progressive, so it can be cut. */
+    private var playerSourceCuttable = false
+    /** A zap is being held: the old item is playing out, the new one is queued behind it. */
+    private var tailPending = false
     private var cachedDefaultFactory: DefaultMediaSourceFactory? = null
     private var cachedHlsCcFactory: HlsMediaSource.Factory? = null
     /** Debug-build HTTP probe for provider-side failures. It persists redacted metadata, a
@@ -3292,7 +3347,7 @@ class LivePreviewEngine(
     private fun httpDataSourceFor(ua: String): OkHttpDataSource.Factory {
         // Keyed on the headers as well as the UA: the three cached factories bake the data source in,
         // so a channel with its own Referer must not reuse the previous channel's factory.
-        if (ua != dataSourceForUa || currentHeaders != dataSourceForHeaders || cachedHttpDataSource == null) {
+        if (ua != dataSourceForUa || currentHeaders != dataSourceForHeaders || cachedHttpDataSource == null || tailWrapped != zapTailHold) {
             cachedHttpDataSource = OkHttpDataSource.Factory(diagnosticHttpClient).setUserAgent(ua)
                 .setTransferListener(throughputTracker)
                 .setDefaultRequestProperties(
@@ -3317,8 +3372,12 @@ class LivePreviewEngine(
                 .setSampleMimeType(androidx.media3.common.MimeTypes.APPLICATION_CEA608)
                 .setAccessibilityChannel(1) // CC1 — the standard primary caption channel
                 .build()
+            val mediaData: androidx.media3.datasource.DataSource.Factory =
+                if (zapTailHold) TailCutDataSourceFactory(cachedHttpDataSource!!) { tailToken }.also { tailFactory = it }
+                else cachedHttpDataSource!!.also { tailFactory = null }
+            tailWrapped = zapTailHold
             cachedDefaultFactory = DefaultMediaSourceFactory(
-                cachedHttpDataSource!!,
+                mediaData,
                 androidx.media3.extractor.DefaultExtractorsFactory()
                     .setTsExtractorFlags(
                         androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_OVERRIDE_CAPTION_DESCRIPTORS or tsFlags,
@@ -3326,7 +3385,7 @@ class LivePreviewEngine(
                     .setTsSubtitleFormats(listOf(cc1)),
             ).setLoadErrorHandlingPolicy(playedLivePolicy)
                 .setDrmSessionManagerProvider(tv.own.owntv.core.drm.InlineClearKeyDrmProvider)
-            cachedHlsCcFactory = HlsMediaSource.Factory(cachedHttpDataSource!!)
+            cachedHlsCcFactory = HlsMediaSource.Factory(mediaData)
                 .setDrmSessionManagerProvider(tv.own.owntv.core.drm.InlineClearKeyDrmProvider)
                 // Read per playlist load, so the setting needs no cache reset.
                 .setPlaylistParserFactory(SdrVariants.ParserFactory { preferSdr })
