@@ -1150,6 +1150,8 @@ class LivePreviewEngine(
         // item keeps what the new item has buffered.
         mainHandler.removeCallbacks(tailSwitchPoll)
         if (TAIL_EARLY_SWITCH) mainHandler.postDelayed(tailSwitchPoll, TAIL_POLL_MS)
+        mainHandler.removeCallbacks(dipStart)
+        mainHandler.postDelayed(dipStart, (tailBufferedAtCut - TAIL_DIP_LEAD_MS).coerceAtLeast(0L))
         // The old picture is still on screen and is still a healthy stream: keep the UI on it.
         _state.value = State.PLAYING; _buffering.value = false
         val gen = firstFrameGate.current
@@ -3167,11 +3169,52 @@ class LivePreviewEngine(
     private var playerSourceCuttable = false
     /** A zap is being held: the old item is playing out, the new one is queued behind it. */
     private var tailPending = false
-        set(value) { field = value; _tailHolding.value = value || tailAwaitFrame }
+        set(value) { field = value; _tailHolding.value = value || tailAwaitFrame; if (!value) endHandoverDip() }
     /** The held tail is over and the new channel plays, but its first frame has not been rendered yet. */
     private var tailAwaitFrame = false
         set(value) { field = value; _tailHolding.value = tailPending || value }
     private val tailAwaitTimeout = Runnable { tailAwaitFrame = false }
+
+    /**
+     * Soft hand-over. The old picture plays out its tail and the new channel takes over with a hard cut, in picture
+     * and in sound. Shortly before the tail runs out (it is known: what was buffered when the connection was cut) the
+     * sound is eased down and [tailHandoverSoon] tells the UI to dim the picture; at the hand-over both come back.
+     * Nothing freezes: the picture keeps moving the whole time. If the hand-over is late, [dipFailsafe] lets go.
+     */
+    private val _tailHandoverSoon = MutableStateFlow(false)
+    val tailHandoverSoon: StateFlow<Boolean> = _tailHandoverSoon
+    private var dipSavedVolume = -1f
+    private var volumeRamp: Runnable? = null
+    private val dipStart = Runnable {
+        if (!tailPending) return@Runnable
+        val p = player ?: return@Runnable
+        if (dipSavedVolume < 0f) dipSavedVolume = p.volume
+        _tailHandoverSoon.value = true
+        rampVolume(dipSavedVolume * TAIL_DIP_VOLUME, TAIL_DIP_DOWN_MS)
+        mainHandler.removeCallbacks(dipFailsafe); mainHandler.postDelayed(dipFailsafe, TAIL_DIP_FAILSAFE_MS)
+    }
+    private val dipFailsafe = Runnable { endHandoverDip() }
+    private fun endHandoverDip() {
+        mainHandler.removeCallbacks(dipStart); mainHandler.removeCallbacks(dipFailsafe)
+        if (_tailHandoverSoon.value) _tailHandoverSoon.value = false
+        if (dipSavedVolume >= 0f) { rampVolume(dipSavedVolume, TAIL_DIP_UP_MS); dipSavedVolume = -1f }
+    }
+    private fun rampVolume(to: Float, durationMs: Long) {
+        volumeRamp?.let { mainHandler.removeCallbacks(it) }
+        val p = player ?: return
+        val from = p.volume
+        val t0 = android.os.SystemClock.elapsedRealtime()
+        val r = object : Runnable {
+            override fun run() {
+                val pl = player ?: return
+                val f = ((android.os.SystemClock.elapsedRealtime() - t0) / durationMs.toFloat()).coerceIn(0f, 1f)
+                pl.volume = from + (to - from) * f
+                if (f < 1f) mainHandler.postDelayed(this, 25)
+            }
+        }
+        volumeRamp = r
+        mainHandler.post(r)
+    }
     private val _tailHolding = MutableStateFlow(false)
     private var tailCutAtMs = 0L
     private var tailBufferedAtCut = 0L
@@ -3647,10 +3690,15 @@ class LivePreviewEngine(
 
     companion object {
         private const val ZAP_TAG = "OwnTV-Zap"
+        private const val TAIL_DIP_LEAD_MS = 300L
+        private const val TAIL_DIP_VOLUME = 0.2f
+        private const val TAIL_DIP_DOWN_MS = 250L
+        private const val TAIL_DIP_UP_MS = 400L
+        private const val TAIL_DIP_FAILSAFE_MS = 1_500L
         private const val TAIL_EARLY_SWITCH = false
         private const val TAIL_HOLD_BUFFER_SECS = 4
         private const val TAIL_SWITCH_MIN_MS = 3_000L
-        private const val TAIL_AWAIT_FRAME_MAX_MS = 6_000L
+        private const val TAIL_AWAIT_FRAME_MAX_MS = 250L
         private const val TAIL_POLL_MS = 40L
         /** Channels already hinted this app session (main thread); the hint is shown once per channel. */
         private val smoothnessHinted = HashSet<String>()
