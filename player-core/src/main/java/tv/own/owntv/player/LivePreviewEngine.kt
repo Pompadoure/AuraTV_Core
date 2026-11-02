@@ -1394,11 +1394,16 @@ class LivePreviewEngine(
             mainHandler.removeCallbacks(tailSwitchPoll)
             // The held tail has run out and the new channel took over without a gap in the player.
             tailPending = false
+            // The new channel has taken over in the player, but its first picture is still to come: keep the
+            // "change under way" state until that frame is on screen (see onRenderedFirstFrame).
+            tailAwaitFrame = true
+            mainHandler.removeCallbacks(tailAwaitTimeout); mainHandler.postDelayed(tailAwaitTimeout, TAIL_AWAIT_FRAME_MAX_MS)
             zapMark("tail hold over: new channel playing")
             if (player?.playbackState == Player.STATE_READY) onPlaybackStateChanged(Player.STATE_READY) else armOpenWatchdog()
         }
 
         override fun onRenderedFirstFrame() {
+            if (tailAwaitFrame) { tailAwaitFrame = false; mainHandler.removeCallbacks(tailAwaitTimeout); zapMark("tail hold: new channel's first picture is up") }
             tune.firstFrameRendered = true
             _renderedFrameTick.value += 1
         }
@@ -1802,7 +1807,7 @@ class LivePreviewEngine(
             setVideoTrackDisabled(_audioOnly.value) // survives a player rebuild while Audio Mode is on
             // An open that buffers but never starts would otherwise hold the spinner forever — see
             // [openWatchdog]. Armed for every tune, pre-roll or not: branch (1) doesn't need one.
-            if (holdTail && p === before) reprepareHoldingTail(p, url) else { tailPending = false; mainHandler.removeCallbacks(tailSwitchPoll); prepareOnFreshSurface(p, url) }
+            if (holdTail && p === before) reprepareHoldingTail(p, url) else { tailPending = false; tailAwaitFrame = false; mainHandler.removeCallbacks(tailSwitchPoll); prepareOnFreshSurface(p, url) }
         }.onFailure {
             android.util.Log.w(LiveDiagnosticsLog.TAG, "preview play() failed for ${HttpClient.redactUrl(url)}", it)
             LiveDiagnosticsLog.event("play() failed: ${it.message}")
@@ -3151,7 +3156,11 @@ class LivePreviewEngine(
     private var playerSourceCuttable = false
     /** A zap is being held: the old item is playing out, the new one is queued behind it. */
     private var tailPending = false
-        set(value) { field = value; _tailHolding.value = value }
+        set(value) { field = value; _tailHolding.value = value || tailAwaitFrame }
+    /** The held tail is over and the new channel plays, but its first frame has not been rendered yet. */
+    private var tailAwaitFrame = false
+        set(value) { field = value; _tailHolding.value = tailPending || value }
+    private val tailAwaitTimeout = Runnable { tailAwaitFrame = false }
     private val _tailHolding = MutableStateFlow(false)
     private var tailCutAtMs = 0L
     private var tailBufferedAtCut = 0L
@@ -3627,7 +3636,8 @@ class LivePreviewEngine(
 
     companion object {
         private const val ZAP_TAG = "OwnTV-Zap"
-        private const val TAIL_SWITCH_MIN_MS = 1_200L
+        private const val TAIL_SWITCH_MIN_MS = 3_000L
+        private const val TAIL_AWAIT_FRAME_MAX_MS = 6_000L
         private const val TAIL_POLL_MS = 40L
         /** Channels already hinted this app session (main thread); the hint is shown once per channel. */
         private val smoothnessHinted = HashSet<String>()
