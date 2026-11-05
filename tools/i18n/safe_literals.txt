@@ -5802,6 +5802,7 @@
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	play() engine=$engineId muted=$muted
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	play() engine=$engineId url=${HttpClient.redactUrl(url)} muted=$muted
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	play() failed: ${it.message}
+1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	play() ignored — app is in the background
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	playback healthy for ${HEALTHY_MS}ms — reconnect ladder reset
 1	technical	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	playback kept re-buffering ($detail)
 1	log	player-core/src/main/java/tv/own/owntv/player/LivePreviewEngine.kt	player stale (load_control was=$builtLoadControl want=$wanted, hw decoding was=$builtHwDecoding want=$hwDecodingEnabled) — rebuilding player

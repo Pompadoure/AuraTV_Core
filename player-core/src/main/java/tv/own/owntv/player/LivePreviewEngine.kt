@@ -1712,6 +1712,12 @@ class LivePreviewEngine(
          *  never the URL tuned first — see [tv.own.owntv.core.database.entity.ChannelEntity.directSource]. */
         directSource: String? = null,
     ) {
+        // Aura: a tune that arrives after the app went to the background (a guide preview requested
+        // as the user pressed Home) would play, sound included, behind the launcher. Refuse it.
+        if (appBackgrounded) {
+            LiveDiagnosticsLog.event("play() ignored — app is in the background")
+            return
+        }
         LiveDiagnosticsLog.event("play() engine=$engineId url=${HttpClient.redactUrl(url)} muted=$muted")
         android.util.Log.i(ZAP_TAG, "play() engine=$engineId muted=$muted")
         _tuneStarts.value += 1
@@ -2007,6 +2013,8 @@ class LivePreviewEngine(
         val directSource: String?,
     )
     @Volatile private var backgroundRestore: TunedRequest? = null
+    /** True from [onAppBackgrounded] until [onAppForegrounded]: nothing may start meanwhile. */
+    @Volatile private var appBackgrounded = false
 
     /** The current channel as it was tuned, at [url] (a Stalker retry swaps in a freshly minted one). */
     private fun tunedRequest(url: String) = TunedRequest(
@@ -2023,6 +2031,7 @@ class LivePreviewEngine(
     /** Backgrounded (screensaver / Home): remember what's playing, then free the stream. Paired with
      *  [onAppForegrounded]. */
     fun onAppBackgrounded() {
+        appBackgrounded = true
         currentUrl?.let { backgroundRestore = tunedRequest(it) }
         stop()
     }
@@ -2030,6 +2039,7 @@ class LivePreviewEngine(
     /** Foregrounded: re-tune the live channel that was freed while backgrounded (at the live edge), so it
      *  resumes instead of sitting on a dead/empty stream. No-op if something is already playing. */
     fun onAppForegrounded() {
+        appBackgrounded = false
         val r = backgroundRestore ?: return
         backgroundRestore = null
         if (currentUrl != null) return
