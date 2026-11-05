@@ -83,7 +83,7 @@ class AutoRefresh(
         if (epgModes.isNotEmpty()) {
             epgSourceStore.getAll().forEach { src ->
                 val mode = epgModes[src.id] ?: EpgRefresh.OFF
-                if (shouldRefreshEpg(mode, src.lastSyncAt, nowMs, includeStartup)) {
+                if (shouldRefreshEpg(mode, src.lastSyncAt, nowMs, includeStartup) || guideRunningDry(mode, src.id, src.lastSyncAt, nowMs)) {
                     val base = epgDao.countForSources(listOf(src.id))
                     Log.d(TAG, "checkAutoRefresh epg sourceId=${src.id} mode=$mode — enqueuing")
                     epgSyncScheduler.enqueueSync(
@@ -153,6 +153,18 @@ class AutoRefresh(
         else -> (now - (lastSyncAt ?: 0L)) >= (refresh.thresholdMs ?: Long.MAX_VALUE)
     }
 
+    /**
+     * A guide that is about to run out of programmes is refreshed whatever the interval says: an interval that is
+     * longer than what the provider's feed reaches ahead (a 48 h interval on a 48 h feed) leaves the evening blank.
+     * Not more often than every [DRY_MIN_GAP_MS], so a feed that is short by nature does not loop.
+     */
+    private suspend fun guideRunningDry(mode: EpgRefresh, sourceId: Long, lastSyncAt: Long?, now: Long): Boolean {
+        if (mode.mode == EpgAutoRefresh.OFF || mode.mode == EpgAutoRefresh.MANUAL) return false
+        if (lastSyncAt != null && now - lastSyncAt < DRY_MIN_GAP_MS) return false
+        val latest = epgDao.latestStop(listOf(sourceId)) ?: return false
+        return latest - now < DRY_AHEAD_MS
+    }
+
     /** EPG equivalent of [shouldRefresh]. */
     private fun shouldRefreshEpg(
         refresh: EpgRefresh,
@@ -173,5 +185,9 @@ class AutoRefresh(
         const val REASON = "auto_refresh"
         /** Minimum gap between resume-triggered checks (rotation, rapid background/foreground). */
         private const val RESUME_THROTTLE_MS = 60_000L
+        /** Refresh early when the guide reaches less than this far ahead... */
+        private const val DRY_AHEAD_MS = 8 * 3_600_000L
+        /** ...but not within this long of the last refresh. */
+        private const val DRY_MIN_GAP_MS = 3 * 3_600_000L
     }
 }

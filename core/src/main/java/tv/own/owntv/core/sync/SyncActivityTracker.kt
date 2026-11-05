@@ -25,16 +25,19 @@ class SyncActivityTracker {
     val lastCompleted: StateFlow<CompletedSync?> = _lastCompleted.asStateFlow()
 
     fun started(sourceId: Long, sourceName: String) {
+        if (SyncQuiet.isCatalogQuiet(sourceId)) return
         _active.value = _active.value + (sourceId to ActiveSync(sourceId, sourceName))
     }
 
     fun progress(sourceId: Long, stage: ImportStage) {
+        if (SyncQuiet.isCatalogQuiet(sourceId)) return
         val existing = _active.value[sourceId] ?: return
         _active.value = _active.value + (sourceId to existing.copy(stage = stage))
     }
 
     fun finished(sourceId: Long, sourceName: String, result: SyncResult) {
         _active.value = _active.value - sourceId
+        if (SyncQuiet.isCatalogQuiet(sourceId)) return // an automatic refresh leaves no "done" line either
         _lastCompleted.value = CompletedSync(sourceId, sourceName, result, android.os.SystemClock.elapsedRealtime())
     }
 

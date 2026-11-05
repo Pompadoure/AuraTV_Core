@@ -35,6 +35,14 @@ class CatalogSyncWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
+        val id = inputData.getLong(KEY_SOURCE_ID, -1L)
+        val quiet = inputData.getString(KEY_REASON) == tv.own.owntv.core.sync.AutoRefresh.REASON
+        // An automatic refresh shows nothing in the status pill: see SyncQuiet.
+        if (quiet) tv.own.owntv.core.sync.SyncQuiet.catalog(id, true)
+        try { return runWork() } finally { if (quiet) tv.own.owntv.core.sync.SyncQuiet.catalog(id, false) }
+    }
+
+    private suspend fun runWork(): Result {
         val sourceId = inputData.getLong(KEY_SOURCE_ID, -1L)
         val reason = inputData.getString(KEY_REASON) ?: "unknown"
         val baseItemCount = inputData.getInt(KEY_BASE_ITEM_COUNT, 0)

@@ -173,6 +173,10 @@ interface EpgDao {
     @Query("SELECT id, description FROM epg_programmes WHERE id IN (:ids) AND description IS NOT NULL")
     suspend fun programmeDescriptions(ids: List<Long>): List<EpgProgrammeText>
 
+    /** When the last stored programme of these sources ends (null: nothing stored) — how far ahead the guide reaches. */
+    @Query("SELECT MAX(stopMs) FROM epg_programmes WHERE sourceId IN (:sourceIds)")
+    suspend fun latestStop(sourceIds: List<Long>): Long?
+
     /** How many programmes are stored for these sources (to tell "no guide yet" from "empty window"). */
     @Query("SELECT COUNT(*) FROM epg_programmes WHERE sourceId IN (:sourceIds)")
     suspend fun countForSources(sourceIds: List<Long>): Int

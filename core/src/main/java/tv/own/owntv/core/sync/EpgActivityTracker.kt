@@ -25,10 +25,12 @@ class EpgActivityTracker {
     val active: StateFlow<Map<Long, ActiveEpgSync>> = _active.asStateFlow()
 
     fun started(sourceId: Long, sourceName: String) {
+        if (SyncQuiet.isEpgQuiet(sourceId)) return
         _active.value = _active.value + (sourceId to ActiveEpgSync(sourceId, sourceName))
     }
 
     fun progress(sourceId: Long, channels: Int, programmes: Int) {
+        if (SyncQuiet.isEpgQuiet(sourceId)) return
         val existing = _active.value[sourceId] ?: return
         _active.value = _active.value + (sourceId to existing.copy(channels = channels, programmes = programmes))
     }

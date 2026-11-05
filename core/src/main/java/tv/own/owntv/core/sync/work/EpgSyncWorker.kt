@@ -42,6 +42,14 @@ class EpgSyncWorker(
         )
 
     override suspend fun doWork(): Result {
+        val id = inputData.getLong(KEY_SOURCE_ID, Long.MIN_VALUE)
+        val quiet = inputData.getString(KEY_REASON) == tv.own.owntv.core.sync.AutoRefresh.REASON
+        // An automatic refresh shows nothing (no pill, no notification): see SyncQuiet.
+        if (quiet) tv.own.owntv.core.sync.SyncQuiet.epg(id, true)
+        try { return runWork() } finally { if (quiet) tv.own.owntv.core.sync.SyncQuiet.epg(id, false) }
+    }
+
+    private suspend fun runWork(): Result {
         val sourceId = inputData.getLong(KEY_SOURCE_ID, Long.MIN_VALUE)
         val reason = inputData.getString(KEY_REASON) ?: "unknown"
         if (sourceId == Long.MIN_VALUE) return Result.failure()
@@ -67,7 +75,7 @@ class EpgSyncWorker(
         // Best effort, always: Android 12 and later refuse a foreground service started from the
         // background in some states, and a guide that syncs the old way is what shipped until now.
         // Losing the promotion must never lose the sync with it.
-        runCatching { setForeground(progress.foregroundInfo()) }
+        if (reason != tv.own.owntv.core.sync.AutoRefresh.REASON) runCatching { setForeground(progress.foregroundInfo()) }
             .onFailure { Log.i(TAG, "EPG sync stays in the background: ${it.message}") }
 
         try {
