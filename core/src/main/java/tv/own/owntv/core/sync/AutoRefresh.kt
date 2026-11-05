@@ -80,6 +80,7 @@ class AutoRefresh(
         }
         // --- EPG sources ---
         val epgModes = settings.epgAutoRefresh.first()
+        Log.d(TAG, "checkAutoRefresh startup=$includeStartup epgModes=$epgModes")
         if (epgModes.isNotEmpty()) {
             epgSourceStore.getAll().forEach { src ->
                 val mode = epgModes[src.id] ?: EpgRefresh.OFF
@@ -161,8 +162,12 @@ class AutoRefresh(
     private suspend fun guideRunningDry(mode: EpgRefresh, sourceId: Long, lastSyncAt: Long?, now: Long): Boolean {
         if (mode.mode == EpgAutoRefresh.OFF || mode.mode == EpgAutoRefresh.MANUAL) return false
         if (lastSyncAt != null && now - lastSyncAt < DRY_MIN_GAP_MS) return false
-        val latest = epgDao.latestStop(listOf(sourceId)) ?: return false
-        return latest - now < DRY_AHEAD_MS
+        // No programmes at all counts as dry too: an empty guide is the driest there is.
+        val latest = epgDao.latestStop(listOf(sourceId))
+        val dry = latest == null || latest - now < DRY_AHEAD_MS
+        Log.d(TAG, "guideRunningDry sourceId=$sourceId mode=${mode.mode} lastSyncAgoMin=${lastSyncAt?.let { (now - it) / 60_000 }} " +
+            "latestStopAheadMin=${latest?.let { (it - now) / 60_000 }} dry=$dry")
+        return dry
     }
 
     /** EPG equivalent of [shouldRefresh]. */
