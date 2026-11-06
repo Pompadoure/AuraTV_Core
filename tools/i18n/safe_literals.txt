@@ -2294,6 +2294,7 @@
 1	json	core/src/main/java/tv/own/owntv/core/metadata/TmdbTrendingParser.kt	total_pages
 1	json	core/src/main/java/tv/own/owntv/core/metadata/TmdbTrendingParser.kt	vote_average
 1	technical	core/src/main/java/tv/own/owntv/core/metadata/TrailerKeys.kt	,
+1	json	core/src/main/java/tv/own/owntv/core/model/HomeRow.kt	auraLayout
 2	preference-key	core/src/main/java/tv/own/owntv/core/model/HomeRow.kt	favoriteLiveMode
 1	technical	core/src/main/java/tv/own/owntv/core/model/HomeRow.kt	heroIncludeLive
 1	technical	core/src/main/java/tv/own/owntv/core/model/HomeRow.kt	heroIncludeMovies

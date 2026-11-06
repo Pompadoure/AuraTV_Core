@@ -7,6 +7,9 @@ import org.json.JSONObject
 
 enum class HomeRow {
     TRENDING,
+
+    /** Aura: the Live-TV preview card — the last channel playing in a rounded window, with what is on and a Watch button. */
+    LIVE_NOW,
     HERO,
 
     /** Sports Hub: followed matches, drawn only while one is live or kicks off within the hour. */
@@ -46,9 +49,10 @@ enum class HeroKind {
 
 @Immutable
 data class HomeConfig(
-    val order: List<HomeRow> = HomeRow.entries.toList(),
+    val order: List<HomeRow> = AURA_ORDER,
     val hidden: Set<HomeRow> = setOf(HomeRow.RECENT_CHANNELS),
-    val heroIncludeLive: Boolean = true,
+    // Aura: Continue watching is films and series only; live channels have their own rows.
+    val heroIncludeLive: Boolean = false,
     val heroIncludeMovies: Boolean = true,
     val heroIncludeSeries: Boolean = true,
     val recentLiveMode: HomeLiveRowMode = HomeLiveRowMode.CARDS,
@@ -75,6 +79,7 @@ data class HomeConfig(
         put("recentLiveMode", recentLiveMode.name)
         put("favoriteLiveMode", favoriteLiveMode.name)
         put("trendingStyle", trendingStyle.name)
+        put(AURA_LAYOUT_KEY, AURA_LAYOUT_VERSION)
     }
 
     companion object {
@@ -84,10 +89,13 @@ data class HomeConfig(
             val storedOrder = obj.optJSONArray("order").toHomeRows()
             val hidden = if (obj.has("hidden")) obj.optJSONArray("hidden").toHomeRows().toSet()
                 else HomeConfig().hidden
+            // Aura: a config saved before the Aura layout existed gets the Aura order and no live channels in
+            // Continue watching, once. Anything saved since carries the marker and is left exactly as saved.
+            val aura = obj.has(AURA_LAYOUT_KEY)
             return HomeConfig(
-                order = mergeOrder(storedOrder),
+                order = if (aura) mergeOrder(storedOrder) else AURA_ORDER,
                 hidden = hidden,
-                heroIncludeLive = readBool(obj, "heroLive", "heroIncludeLive", default = true),
+                heroIncludeLive = if (aura) readBool(obj, "heroLive", "heroIncludeLive", default = false) else false,
                 heroIncludeMovies = readBool(obj, "heroMovies", "heroIncludeMovies", default = true),
                 heroIncludeSeries = readBool(obj, "heroSeries", "heroIncludeSeries", default = true),
                 recentLiveMode = readLiveMode(obj, "recentLiveMode", HomeLiveRowMode.CARDS),
@@ -110,6 +118,14 @@ data class HomeConfig(
             runCatching { HomeLiveRowMode.valueOf(obj.optString(key)) }.getOrDefault(default)
     }
 }
+
+/** The Aura Start page, top to bottom: Live now, favourites, then what was being watched. */
+val AURA_ORDER: List<HomeRow> = listOf(
+    HomeRow.TRENDING, HomeRow.LIVE_NOW, HomeRow.FAVORITE_CHANNELS, HomeRow.FAVORITE_MOVIES, HomeRow.FAVORITE_SERIES,
+    HomeRow.HERO, HomeRow.CONTINUE_MOVIES, HomeRow.CONTINUE_SERIES, HomeRow.LIVE_SPORTS, HomeRow.RECENT_CHANNELS,
+)
+private const val AURA_LAYOUT_KEY = "auraLayout"
+private const val AURA_LAYOUT_VERSION = 1
 
 fun mergeOrder(stored: List<HomeRow>): List<HomeRow> {
     val result = LinkedHashSet<HomeRow>()
