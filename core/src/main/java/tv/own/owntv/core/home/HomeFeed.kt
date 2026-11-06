@@ -194,7 +194,13 @@ class HomeFeedReader(
             val seriesIdsAsync = async { activeSourceIds(settings, sourceDao, profileId, MediaType.SERIES).toSet() }
             val allIdsAsync = async { sourceDao.sourceIdsForProfile(profileId).toSet() }
             val continuationAsync = async { planner.buildContinuationItems(profileId) }
-            val favouritesAsync = async { channelDao.favoritesListAlpha(profileId).first() }
+            // Aura: favourite channels in the user's own Favorites order (same as the Live TV Favorites folder),
+            // not alphabetical, so Home shows them the way the user arranged them.
+            val favouritesAsync = async {
+                val ids = liveIdsAsync.await()
+                if (ids.isEmpty()) emptyList()
+                else channelDao.snapshotFavoritesManual(profileId, ContentOrderEntity.FAV_CONTEXT, ids.toList(), FAVORITE_LIVE_ROW_LIMIT)
+            }
 
             val config = configAsync.await()
             val metadataConfig = metadataAsync.await()
@@ -534,3 +540,4 @@ private const val SLICE_WINDOW_MS = 360 * 60_000L
 private const val HALF_HOUR_MS = 30 * 60_000L
 private const val RECENT_LIVE_ROW_LIMIT = 20
 private const val FAVORITE_VOD_ROW_LIMIT = 50
+private const val FAVORITE_LIVE_ROW_LIMIT = 200
