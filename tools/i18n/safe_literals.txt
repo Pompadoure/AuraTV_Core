@@ -4581,8 +4581,10 @@
 1	log	core/src/main/java/tv/own/owntv/core/sync/AutoRefresh.kt	OwnTVHome
 1	technical	core/src/main/java/tv/own/owntv/core/sync/AutoRefresh.kt	auto_refresh
 1	log	core/src/main/java/tv/own/owntv/core/sync/AutoRefresh.kt	checkAutoRefresh epg sourceId=${src.id} mode=$mode — enqueuing
+1	log	core/src/main/java/tv/own/owntv/core/sync/AutoRefresh.kt	checkAutoRefresh playlist sourceId=${source.id} mode=$mode lastSyncAgoMin=${source.lastSyncAt?.let { (nowMs - it) / 60_000 }}
 1	log	core/src/main/java/tv/own/owntv/core/sync/AutoRefresh.kt	checkAutoRefresh playlist sourceId=${source.id} mode=$mode — enqueuing
 1	log	core/src/main/java/tv/own/owntv/core/sync/AutoRefresh.kt	checkAutoRefresh startup=$includeStartup epgModes=$epgModes
+1	log	core/src/main/java/tv/own/owntv/core/sync/AutoRefresh.kt	checkAutoRefresh startup=$includeStartup playlistModes=$playlistModes
 1	log	core/src/main/java/tv/own/owntv/core/sync/AutoRefresh.kt	epgRefill check failed
 1	log	core/src/main/java/tv/own/owntv/core/sync/AutoRefresh.kt	epgRefill sourceId=${src.id} — synced before but guide is empty, re-fetching
 1	log	core/src/main/java/tv/own/owntv/core/sync/AutoRefresh.kt	guideRunningDry sourceId=$sourceId mode=${mode.mode} lastSyncAgoMin=${lastSyncAt?.let { (now - it) / 60_000 }}
