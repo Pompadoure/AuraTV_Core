@@ -62,9 +62,11 @@ class AutoRefresh(
         val pid = profileDao.resolveExistingProfileId(settings.activeProfileId.first()) ?: return
         // --- Playlist sources ---
         val playlistModes = settings.playlistAutoRefresh.first()
+        Log.d(TAG, "checkAutoRefresh startup=$includeStartup playlistModes=$playlistModes")
         if (playlistModes.isNotEmpty()) {
             sourceRepository.observeSources(pid).first().forEach { source ->
                 val mode = playlistModes[source.id] ?: PlaylistRefresh.OFF
+                Log.d(TAG, "checkAutoRefresh playlist sourceId=${source.id} mode=$mode lastSyncAgoMin=${source.lastSyncAt?.let { (nowMs - it) / 60_000 }}")
                 if (shouldRefresh(mode, source.lastSyncAt, nowMs, includeStartup)) {
                     val counts = importFinalizer.contentCounts(source.id)
                     Log.d(TAG, "checkAutoRefresh playlist sourceId=${source.id} mode=$mode — enqueuing")
