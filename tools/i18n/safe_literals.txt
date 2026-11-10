@@ -5282,10 +5282,12 @@
 1	json	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	assets
 1	json	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	body
 1	json	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	browser_download_url
+1	log	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	check done ms=${android.os.SystemClock.elapsedRealtime() - checkStart} http=${resp.code} remote=$version local=${CoreBuildInfo.buildCommit.take(7)} newer=$newer
 1	technical	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	dev-${it.take(7)}
 1	technical	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	https://api.github.com/repos/${CoreBuildInfo.releaseRepo}/releases/
 1	log	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	install cancelled by user
 1	log	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	install refused status=$status message=$message
+1	log	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	install waiting for user confirmation
 1	technical	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	latest
 1	json	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	name
 1	file-path	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	owntv-update
@@ -5299,6 +5301,7 @@
 1	log	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	update check failed: ${error.message}
 1	log	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	update download failed: ${error.message}
 1	log	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	update installed
+1	log	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	update timings bytes=$size downloadMs=$dlMs verifyMs=$verifyMs sessionMs=${android.os.SystemClock.elapsedRealtime() - dlStart - dlMs - verifyMs}
 1	file-path	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	updates
 1	technical	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	v
 1	log	core/src/main/java/tv/own/owntv/core/update/UpdateManager.kt	wrong package ${info.packageName}

@@ -98,6 +98,7 @@ class UpdateManager(
         if (_state.value is State.Checking || _state.value is State.Downloading) return
         _state.value = State.Checking
         scope.launch {
+            val checkStart = android.os.SystemClock.elapsedRealtime()
             runCatching {
                 val request = Request.Builder()
                     // AuraTV fork: a rolling pre-release tag, when the host names one, replaces "latest".
@@ -146,6 +147,7 @@ class UpdateManager(
                     } else {
                         isNewer(version, currentVersion)
                     }
+                    Log.i(TAG, "check done ms=${android.os.SystemClock.elapsedRealtime() - checkStart} http=${resp.code} remote=$version local=${CoreBuildInfo.buildCommit.take(7)} newer=$newer")
                     if (newer) _state.value = State.Available(info) else _state.value = State.UpToDate
                 }
             }.onFailure { error ->
@@ -164,6 +166,7 @@ class UpdateManager(
                 val dir = File(context.filesDir, "updates").apply { mkdirs() }
                 val out = File(dir, "owntv-update.apk")
                 out.delete() // never build on top of a previous half-download
+                val dlStart = android.os.SystemClock.elapsedRealtime()
                 val request = Request.Builder().url(info.apkUrl).header("User-Agent", "OwnTV").build()
                 try {
                     client.newCall(request).execute().use { resp ->
@@ -192,8 +195,12 @@ class UpdateManager(
                             throw DamagedDownloadException("truncated: got $copied of $total bytes")
                         }
                     }
+                    val dlMs = android.os.SystemClock.elapsedRealtime() - dlStart
+                    val size = out.length()
                     verifyApk(out)
+                    val verifyMs = android.os.SystemClock.elapsedRealtime() - dlStart - dlMs
                     install(out)
+                    Log.i(TAG, "update timings bytes=$size downloadMs=$dlMs verifyMs=$verifyMs sessionMs=${android.os.SystemClock.elapsedRealtime() - dlStart - dlMs - verifyMs}")
                 } catch (e: Throwable) {
                     out.delete() // a bad file must not linger and be retried as-is
                     throw e
@@ -269,6 +276,7 @@ class UpdateManager(
             when (status) {
                 // The user still has to approve the install — this is the system prompt, not a failure.
                 PackageInstaller.STATUS_PENDING_USER_ACTION -> {
+                    Log.i(TAG, "install waiting for user confirmation")
                     val confirm = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_INTENT, Intent::class.java)
                     confirm?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     runCatching { confirm?.let { context.startActivity(it) } }
